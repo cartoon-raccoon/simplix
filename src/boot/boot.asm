@@ -99,8 +99,6 @@ gdt_desc:        ; gdt pointer
 
 [bits 32]
 load32:
-    jmp $
-
     mov ax, DATA_SEG
     mov ds, ax
     mov es, ax
@@ -111,6 +109,8 @@ load32:
     ; setting up stack
     mov ebp, 0x00200000
     mov esp, ebp
+
+    jmp $
 
 times 510 - ($ - $$) db 0
 dw 0xaa55

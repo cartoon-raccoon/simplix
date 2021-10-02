@@ -1,3 +1,6 @@
+; This file is part of Simplix.
+; It is part of the bootloader that starts the system.
+
 org 0x7c00
 [bits 16]
 
@@ -18,6 +21,8 @@ start:
 start2:
     cli ; clear interrupts
 
+    ;todo: add checking for wrong bootdrives
+
     ; load the segment into gpr ax
     mov ax, 0x00
     ; load the data and extra segment with ax (0x7c0)
@@ -32,26 +37,6 @@ start2:
     mov sp, 0x7c00
 
     sti ; re-enable interrupts
-
-    ; setting up for a read to the drive
-    mov ah, 2 
-    mov al, 1 ; number of sectors to read
-    mov ch, 0 ; cylinder low eight bits
-    mov cl, 2 ; read sector two
-    mov dh, 0 ; head number
-    mov bx, buffer
-
-    ; ; call the bios drive read subroutine
-    ; int 0x13
-
-    ; ; if carry flag is set, we have an error
-    ; ; jump to our error handler routine
-    ; jc error
-
-    ; ; move the buffer pointer into si
-    ; mov si, buffer
-    ; call print
-    ; jmp $
 
 .load_protected:
     cli
@@ -110,7 +95,78 @@ load32:
     mov ebp, 0x00200000
     mov esp, ebp
 
+    call check_a20
+
+    cmp eax, 0
+    je .loop
+
+.enable_a20:
+    cli
+
+    call .a20_wait
+    mov al, 0xad
+    out 0x64, al
+
+    call .a20_wait
+    mov al, 0xd0
+    out 0x64, al
+
+    call .a20_wait2
+    in al, 0x60
+    push eax
+
+    call .a20_wait
+    mov al, 0xd1
+    out 0x64, al
+
+    call .a20_wait
+    pop eax
+    or al, 2
+    out 0x60, al
+
+    call .a20_wait
+    mov  al,0xAE
+    out  0x64,al
+ 
+    call .a20_wait
+    sti
+
+.a20_wait:
+    in      al,0x64
+    test    al,2
+    jnz     .a20_wait
+    ret
+
+.a20_wait2:
+    in      al,0x64
+    test    al,1
+    jz      .a20_wait2
+    ret
+
+.loop:
     jmp $
+
+check_a20:
+    pushad
+
+    ; test whether stuff gets written to the same address
+    mov edi, 0x112345
+    mov esi, 0x012345
+    mov [esi], esi
+    mov [edi], edi
+    cmpsd
+    popad
+
+    ; if not equal, A20 is enabled, return 0
+    jne .a20_on
+
+    ; else, a20 is enabled, return 1
+    mov eax, 1
+    ret
+.a20_on:
+    mov eax, 0
+    ret
+
 
 times 510 - ($ - $$) db 0
 dw 0xaa55

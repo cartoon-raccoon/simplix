@@ -1,6 +1,11 @@
 ; This file is part of Simplix.
 ; It is part of the bootloader that starts the system.
 
+; Currently, this file:
+; - Sets the GDT
+; - Enters protected mode
+; - Enables the A20 line
+
 org 0x7c00
 [bits 16]
 
@@ -50,37 +55,7 @@ start2:
     ; jump to our 32 bit code
     jmp CODE_SEG:load32
 
-; ------ GDT ------
-gdt_start:
-
-
-gdt_null:        ; defining a GDT null entry 
-    dd 0x0
-    dd 0x0
-
-; offset 0x8
-gdt_code:        ; cs should point to this
-    dw 0xffff    ; segment limit bits 0-15
-    dw 0x0       ; segment base bits 0-15
-    db 0         ; base bits 16-23
-    db 10011010b ; access byte
-    db 11001111b ;
-    db 0         ; base segment bits 24-31
-
-; offset 0x10
-gdt_data:        ; ds, ss, es, fs, gs
-    dw 0xffff    ; segment limit bits 0-15
-    dw 0x0       ; segment base bits 0-15
-    db 0         ; base bits 16-23
-    db 10010010b ; access byte, data segment, so Ex bit unset
-    db 11001111b ;
-    db 0         ; base segment bits 24-31
-
-gdt_end:
-
-gdt_desc:        ; gdt pointer
-    dw gdt_end-gdt_start-1
-    dd gdt_start
+%include "./src/boot/gdt.asm"
 
 [bits 32]
 load32:
@@ -131,6 +106,11 @@ load32:
     call .a20_wait
     sti
 
+    jmp .loop
+
+.loop:
+    jmp $
+
 .a20_wait:
     in      al,0x64
     test    al,2
@@ -142,9 +122,6 @@ load32:
     test    al,1
     jz      .a20_wait2
     ret
-
-.loop:
-    jmp $
 
 check_a20:
     pushad

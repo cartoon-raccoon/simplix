@@ -3,7 +3,15 @@ CC=i686-elf-gcc
 CFLAGS=-ffreestanding -O0 -nostdlib
 LD=i686-elf-ld
 
-build: ./bin/boot.bin ./bin/kernel.bin
+ARCHDIR?=./kernel/arch
+
+#todo: move this into a config script
+ARCH?=i686
+
+.PHONY: build clean run
+.SUFFIXES: .c .o .asm .h
+
+build: clean ./bin/boot.bin ./bin/kernel.bin
 	rm -rf ./bin/simplix.bin
 	dd if=./bin/boot.bin >> ./bin/simplix.bin
 	dd if=./bin/kernel.bin >> ./bin/simplix.bin
@@ -13,14 +21,14 @@ build: ./bin/boot.bin ./bin/kernel.bin
 # It then invokes gcc to turn this into a linked file.
 ./bin/kernel.bin: $(FILES)
 	$(LD) -g -relocatable $(FILES) -o ./build/kernel.o
-	$(CC) -T ./kernel/linker.ld -o ./bin/kernel.bin $(CFLAGS) ./build/kernel.o
+	$(CC) -T $(ARCHDIR)/$(ARCH)/linker.ld -o ./bin/kernel.bin $(CFLAGS) ./build/kernel.o
 
-./bin/boot.bin: ./kernel/boot/boot.asm
-	nasm -f bin ./kernel/boot/boot.asm -o ./bin/boot.bin
+./bin/boot.bin: $(ARCHDIR)/$(ARCH)/boot/boot.asm
+	nasm -f bin $(ARCHDIR)/$(ARCH)/boot/boot.asm -o ./bin/boot.bin
 
 # -g option enables debug information, remove when building release
-./build/kernel.asm.o: ./kernel/kernel.asm
-	nasm -f elf -g ./kernel/kernel.asm -o ./build/kernel.asm.o
+./build/kernel.asm.o: $(ARCHDIR)/$(ARCH)/kernel.asm
+	nasm -f elf -g $(ARCHDIR)/$(ARCH)/kernel.asm -o ./build/kernel.asm.o
 
 run: build
 	qemu-system-x86_64 -hda ./bin/boot.bin

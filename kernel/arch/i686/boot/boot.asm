@@ -54,7 +54,7 @@ step2:
     ; jump to our 32 bit code
     jmp CODE_SEG:load_kernel
 
-%include "./kernel/boot/gdt.asm"
+%include "./kernel/arch/i686/boot/gdt.asm"
 
 [bits 32]
 load_kernel:

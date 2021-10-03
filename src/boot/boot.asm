@@ -13,17 +13,16 @@ org 0x7c00
 CODE_SEG equ gdt_code - gdt_start
 DATA_SEG equ gdt_data - gdt_start
 
-_start:
-    jmp short start
-    nop
+jmp short start
+nop
 
 ; bios boot partition
 times 33 db 0
 
 start:
-    jmp 0:start2
+    jmp 0:step2
 
-start2:
+step2:
     cli ; clear interrupts
 
     ;todo: add checking for wrong bootdrives
@@ -47,105 +46,90 @@ start2:
     cli
     lgdt [gdt_desc]
 
-    ; enabling protection enable bit in cr0
+    ; setting protection enable bit in cr0
     mov eax, cr0
     or eax, 0x1
     mov cr0, eax
 
     ; jump to our 32 bit code
-    jmp CODE_SEG:load32
+    jmp CODE_SEG:load_kernel
 
 %include "./src/boot/gdt.asm"
 
 [bits 32]
-load32:
-    mov ax, DATA_SEG
-    mov ds, ax
-    mov es, ax
-    mov fs, ax
-    mov gs, ax
-    mov ss, ax
-
-    ; setting up stack
-    mov ebp, 0x00200000
-    mov esp, ebp
-
-    call check_a20
-
-    cmp eax, 0
-    je .loop
-
-.enable_a20:
-    cli
-
-    call .a20_wait
-    mov al, 0xad
-    out 0x64, al
-
-    call .a20_wait
-    mov al, 0xd0
-    out 0x64, al
-
-    call .a20_wait2
-    in al, 0x60
-    push eax
-
-    call .a20_wait
-    mov al, 0xd1
-    out 0x64, al
-
-    call .a20_wait
-    pop eax
-    or al, 2
-    out 0x60, al
-
-    call .a20_wait
-    mov  al,0xAE
-    out  0x64,al
- 
-    call .a20_wait
-    sti
-
-    jmp .loop
-
-.loop:
-    jmp $
-
-.a20_wait:
-    in      al,0x64
-    test    al,2
-    jnz     .a20_wait
-    ret
-
-.a20_wait2:
-    in      al,0x64
-    test    al,1
-    jz      .a20_wait2
-    ret
-
-check_a20:
-    pushad
-
-    ; test whether stuff gets written to the same address
-    mov edi, 0x112345
-    mov esi, 0x012345
-    mov [esi], esi
-    mov [edi], edi
-    cmpsd
-    popad
-
-    ; if not equal, A20 is enabled, return 0
-    jne .a20_on
-
-    ; else, a20 is enabled, return 1
+load_kernel:
     mov eax, 1
-    ret
-.a20_on:
-    mov eax, 0
+    mov ecx, 100
+    mov edi, 0x0100000
+
+    call ata_lba_read
+
+    jmp CODE_SEG:0x0100000
+    ;jmp $
+
+; Reads the hard disk in LBA mode.
+ata_lba_read:
+
+    ; save eax inside eax
+    mov ebx, eax
+
+    ; get the high 8 bits of lba
+    ; by bitshifting right by 24, we move the top
+    ; 8 bits of eax into al.
+    shr eax, 24
+    or eax, 0xe0
+
+    ; port address to write to
+    mov dx, 0x1f6
+    out dx, al ; send high 8 bits to the lba
+
+    ; send the total sectors to read
+    mov eax, ecx
+    mov dx, 0x1f2
+    out dx, al
+
+    ; sending more bits of the lba
+    mov eax, ebx ; restore backed up lba
+    mov dx, 0x1f3
+    out dx, al
+
+    mov dx, 0x1f4
+    mov eax, ebx
+    shr eax, 8
+    out dx, al
+
+    ; send upper 16 bits
+    mov dx, 0x1f5
+    mov eax, ebx
+    shr eax, 16
+    out dx, al
+
+    mov dx, 0x1f7
+    mov al, 0x20
+    out dx, al
+
+    ; read all sectors into memory
+.next_sector:
+    push ecx
+
+.try_again:
+    mov dx, 0x1f7
+    in al, dx
+    test al, 8
+    jz .try_again
+
+    ;reading 256 words (512 bytes)
+.continue:
+    mov ecx, 256
+    mov dx, 0x1f0
+    rep insw
+    pop ecx
+    loop .next_sector
+
+; done reading sectors
+.done:
     ret
 
 
 times 510 - ($ - $$) db 0
 dw 0xaa55
-
-buffer:

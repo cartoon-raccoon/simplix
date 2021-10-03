@@ -1,0 +1,12 @@
+todo:
+add sysroot and -isystem flags to build.sh and write config.sh
+
+eventually boot from limine
+
+goals:
+
+gui
+wireless driver
+shell
+
+etc etc

@@ -54,7 +54,7 @@ step2:
     ; jump to our 32 bit code
     jmp CODE_SEG:load_kernel
 
-%include "./src/boot/gdt.asm"
+%include "./kernel/boot/gdt.asm"
 
 [bits 32]
 load_kernel:

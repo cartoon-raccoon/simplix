@@ -63,7 +63,7 @@ build: ./bin/boot.bin ./bin/kernel.bin
 	$(CC) $(INCLUDES) $(CFLAGS) -std=gnu99 -c ./kernel/kernel.c -o ./build/kernel.o
 
 run: build
-	qemu-system-x86_64 -hda ./bin/boot.bin
+	qemu-system-x86_64 -hda ./bin/simplix.bin
 
 clean:
 	rm -rf ./bin/*

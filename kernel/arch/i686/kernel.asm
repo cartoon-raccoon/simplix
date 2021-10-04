@@ -102,15 +102,19 @@ check_a20:
 
 start_kernel:
 
-    ; set up irq handlers here
+    ; set up pic stuff
 
-    ; call kernel_main
+    ; disable interrupts until we set up our idt
+    cli
+
+    ; call our beautiful beautiful C code
     call kmain
 
     jmp $
 
 ; make this print something informative to the screen
 error:
+    ; call extern term_print routine
     hlt
 
 times 512 - ($ - $$) db 0

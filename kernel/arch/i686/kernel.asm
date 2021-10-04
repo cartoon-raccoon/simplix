@@ -1,6 +1,8 @@
 [bits 32]
 global _start
 
+extern kmain
+
 CODE_SEG equ 0x08
 DATA_SEG equ 0x10
 
@@ -103,6 +105,8 @@ start_kernel:
     ; set up irq handlers here
 
     ; call kernel_main
+    call kmain
+
     jmp $
 
 ; make this print something informative to the screen

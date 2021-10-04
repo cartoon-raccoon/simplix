@@ -1,1 +1,6 @@
-#include "kernel.h"
+#include <kernel.h>
+
+void kmain()
+{
+
+}

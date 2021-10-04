@@ -1,17 +1,44 @@
-FILES=./build/kernel.asm.o
-CC=i686-elf-gcc
-CFLAGS=-ffreestanding -O0 -nostdlib
-LD=i686-elf-ld
+#todo: move these two into a config script
+ARCH?=i686
+TARGET = i686-elf
+
+CC = $(TARGET)-gcc
+LD = $(TARGET)-ld
+
+INCLUDES = -I./kernel/arch -I./kernel/include
+
+OBJFILES = ./build/kernel.asm.o ./build/kernel.o
+
+LFLAGS = -ffreestanding -O0 -nostdlib
+CFLAGS = -g -ffreestanding \
+			-falign-jumps \
+			-falign-functions \
+			-falign-labels \
+			-falign-loops \
+			-fstrength-reduce \
+			-fomit-frame-pointer \
+			-finline-functions \
+			-fno-builtin \
+			-Wno-unused-function \
+			-Werror \
+			-Wno-unused-label \
+			-Wno-cpp \
+			-Wno-unused-parameter \
+			-nostdlib \
+			-nostartfiles \
+			-nodefaultlibs \
+			-Wall \
+			-O0 \
+			-Iinc
 
 ARCHDIR?=./kernel/arch
 
-#todo: move this into a config script
-ARCH?=i686
 
 .PHONY: build clean run
-.SUFFIXES: .c .o .asm .h
+.SUFFIXES: .c .o .asm
 
-build: clean ./bin/boot.bin ./bin/kernel.bin
+build: ./bin/boot.bin ./bin/kernel.bin
+#	mkdir ./sysroot
 	rm -rf ./bin/simplix.bin
 	dd if=./bin/boot.bin >> ./bin/simplix.bin
 	dd if=./bin/kernel.bin >> ./bin/simplix.bin
@@ -19,16 +46,21 @@ build: clean ./bin/boot.bin ./bin/kernel.bin
 
 # This creates the main elf file with debug information.
 # It then invokes gcc to turn this into a linked file.
-./bin/kernel.bin: $(FILES)
-	$(LD) -g -relocatable $(FILES) -o ./build/kernel.o
-	$(CC) -T $(ARCHDIR)/$(ARCH)/linker.ld -o ./bin/kernel.bin $(CFLAGS) ./build/kernel.o
+./bin/kernel.bin: $(OBJFILES)
+	$(LD) -g -relocatable $(OBJFILES) -o ./build/kernelfull.o
+	$(CC) -T $(ARCHDIR)/$(ARCH)/linker.ld -o ./bin/kernel.bin $(LFLAGS) ./build/kernelfull.o
 
+# Boot Sector
 ./bin/boot.bin: $(ARCHDIR)/$(ARCH)/boot/boot.asm
 	nasm -f bin $(ARCHDIR)/$(ARCH)/boot/boot.asm -o ./bin/boot.bin
 
-# -g option enables debug information, remove when building release
+# Kernel Assembly Code
 ./build/kernel.asm.o: $(ARCHDIR)/$(ARCH)/kernel.asm
 	nasm -f elf -g $(ARCHDIR)/$(ARCH)/kernel.asm -o ./build/kernel.asm.o
+
+# Kernel C Code
+./build/kernel.o: ./kernel/kernel.c
+	$(CC) $(INCLUDES) $(CFLAGS) -std=gnu99 -c ./kernel/kernel.c -o ./build/kernel.o
 
 run: build
 	qemu-system-x86_64 -hda ./bin/boot.bin
